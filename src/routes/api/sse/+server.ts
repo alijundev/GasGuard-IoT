@@ -1,8 +1,9 @@
 import type { RequestHandler } from './$types';
-import { subscribe, type GasReading } from '#lib/server/events';
+import { subscribe, subscribeClear, type GasReading } from '#lib/server/events';
 
 export const GET: RequestHandler = ({ request }) => {
 	let unsubscribe: (() => void) | null = null;
+	let unsubscribeClear: (() => void) | null = null;
 	let keepAliveTimer: ReturnType<typeof setInterval> | null = null;
 
 	const encoder = new TextEncoder();
@@ -27,6 +28,15 @@ export const GET: RequestHandler = ({ request }) => {
 				}
 			});
 
+			// Subscribe to database clear events
+			unsubscribeClear = subscribeClear(() => {
+				try {
+					controller.enqueue(encoder.encode(`event: clear\ndata: {}\n\n`));
+				} catch (err) {
+					console.error('[SSE] Failed to enqueue clear event:', err);
+				}
+			});
+
 			// Keep-alive heartbeat every 15 seconds to prevent proxy / browser timeout
 			keepAliveTimer = setInterval(() => {
 				try {
@@ -46,6 +56,10 @@ export const GET: RequestHandler = ({ request }) => {
 				unsubscribe();
 				unsubscribe = null;
 			}
+			if (unsubscribeClear) {
+				unsubscribeClear();
+				unsubscribeClear = null;
+			}
 		}
 	});
 
@@ -58,6 +72,10 @@ export const GET: RequestHandler = ({ request }) => {
 		if (unsubscribe) {
 			unsubscribe();
 			unsubscribe = null;
+		}
+		if (unsubscribeClear) {
+			unsubscribeClear();
+			unsubscribeClear = null;
 		}
 	});
 

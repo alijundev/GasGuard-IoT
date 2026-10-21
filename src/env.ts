@@ -5,5 +5,6 @@ export const variables = defineEnvVars({
 	MQTT_BROKER_URL: { description: 'MQTT broker URL (default: broker.hivemq.com).' },
 	MQTT_TOPIC: { description: 'MQTT topic the ESP32 publishes sensor data to.' },
 	TELEGRAM_BOT_TOKEN: { description: 'Telegram Bot API token for alert notifications.' },
-	TELEGRAM_CHAT_ID: { description: 'Telegram chat/group ID to send alerts to.' }
+	TELEGRAM_CHAT_ID: { description: 'Telegram chat/group ID to send alerts to.' },
+	ADMIN_PASSWORD: { description: 'Password to authorize database cleanup/deletion.' }
 });

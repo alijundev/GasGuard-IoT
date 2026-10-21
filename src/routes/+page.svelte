@@ -218,6 +218,11 @@
 					}
 				};
 
+				eventSource.addEventListener('clear', () => {
+					logs = [];
+					chartPoints = buildInitialChart([]);
+				});
+
 				eventSource.onerror = () => {
 					isConnected = false;
 					if (eventSource) {
@@ -238,6 +243,73 @@
 			if (eventSource) eventSource.close();
 		};
 	});
+
+	// ── Database Clear Modal State ───────────────────────────────────
+	let isClearModalOpen = $state(false);
+	let clearPassword = $state('');
+	let clearError = $state<string | null>(null);
+	let isClearing = $state(false);
+	let clearSuccessMessage = $state<string | null>(null);
+
+	function openClearModal() {
+		clearPassword = '';
+		clearError = null;
+		clearSuccessMessage = null;
+		isClearModalOpen = true;
+	}
+
+	function closeClearModal() {
+		if (isClearing) return;
+		isClearModalOpen = false;
+		clearPassword = '';
+		clearError = null;
+	}
+
+	async function handleClearLogs() {
+		if (!clearPassword.trim()) {
+			clearError = 'Harap masukkan password admin.';
+			return;
+		}
+
+		isClearing = true;
+		clearError = null;
+
+		try {
+			const res = await fetch('/api/logs/clear', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ password: clearPassword })
+			});
+
+			const resData = (await res.json().catch(() => ({}))) as {
+				success?: boolean;
+				error?: string;
+				message?: string;
+			};
+
+			if (!res.ok || !resData.success) {
+				clearError = resData.error || 'Password salah atau gagal menghapus log.';
+				isClearing = false;
+				return;
+			}
+
+			// Sukses: Bersihkan state lokal dan reset grafik
+			logs = [];
+			chartPoints = buildInitialChart([]);
+			clearSuccessMessage = 'Database berhasil dibersihkan!';
+
+			setTimeout(() => {
+				isClearModalOpen = false;
+				isClearing = false;
+				clearSuccessMessage = null;
+				clearPassword = '';
+			}, 1000);
+		} catch (err) {
+			console.error('Failed to clear logs:', err);
+			clearError = 'Terjadi kesalahan jaringan atau server.';
+			isClearing = false;
+		}
+	}
 
 	// ── Derived Hardware States ──────────────────────────────────────
 	let isWarning = $derived(currentStatus === 'PERINGATAN' || currentAdc >= 2000);
@@ -851,13 +923,40 @@
 
 		<!-- ── Bottom Card: Telemetry & Incident Log Table ────────── -->
 		<section class="rounded-lg border border-[#1e293b] bg-[#0f172a] p-5 shadow-sm">
-			<div class="mb-4">
-				<h2 class="text-sm font-semibold tracking-tight text-white md:text-base">
-					Incident & Telemetry Log
-				</h2>
-				<p class="mt-0.5 font-mono text-xs text-[#94a3b8]">
-					Last {logs.length} recorded state transitions
-				</p>
+			<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+				<div>
+					<h2 class="text-sm font-semibold tracking-tight text-white md:text-base">
+						Incident & Telemetry Log
+					</h2>
+					<p class="mt-0.5 font-mono text-xs text-[#94a3b8]">
+						Last {logs.length} recorded state transitions
+					</p>
+				</div>
+
+				<button
+					type="button"
+					onclick={openClearModal}
+					class="inline-flex items-center gap-1.5 rounded border border-[#ef4444]/30 bg-[#7f1d1d]/20 px-3 py-1.5 font-mono text-xs font-medium text-[#fca5a5] transition-all hover:border-[#ef4444]/60 hover:bg-[#7f1d1d]/40 hover:text-white"
+					title="Bersihkan riwayat database (Perlu Password Admin)"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-3.5 w-3.5"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<path d="M3 6h18" />
+						<path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+						<path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+						<line x1="10" y1="11" x2="10" y2="17" />
+						<line x1="14" y1="11" x2="14" y2="17" />
+					</svg>
+					<span>Hapus Log (Admin)</span>
+				</button>
 			</div>
 
 			<div class="overflow-x-auto">
@@ -916,4 +1015,106 @@
 			</div>
 		</section>
 	</div>
+
+	<!-- ── Modal: Konfirmasi Bersihkan Database (Dilindungi Password) ── -->
+	{#if isClearModalOpen}
+		<div
+			class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+			role="presentation"
+		>
+			<div
+				class="w-full max-w-md space-y-4 rounded-xl border border-[#ef4444]/40 bg-[#0f172a] p-6 shadow-2xl"
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="clear-modal-title"
+			>
+				<div class="flex items-start gap-3">
+					<div
+						class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#ef4444]/50 bg-[#7f1d1d]/30 text-[#ff7886]"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+							<rect width="8" height="5" x="8" y="11" rx="1" />
+							<path d="M10 11V9a2 2 0 0 1 4 0v2" />
+						</svg>
+					</div>
+					<div>
+						<h3 id="clear-modal-title" class="font-sans text-base font-semibold text-white">
+							Otentikasi Bersihkan Database
+						</h3>
+						<p class="mt-1 font-mono text-xs text-[#94a3b8]">
+							Semua riwayat pembacaan sensor gas di database akan dihapus permanen. Masukkan
+							password admin untuk melanjutkan.
+						</p>
+					</div>
+				</div>
+
+				<div class="space-y-2">
+					<label for="admin-password" class="block font-mono text-xs text-[#cbd5e1]">
+						Password Admin
+					</label>
+					<input
+						id="admin-password"
+						type="password"
+						bind:value={clearPassword}
+						onkeydown={(e) => {
+							if (e.key === 'Enter') handleClearLogs();
+							if (e.key === 'Escape') closeClearModal();
+						}}
+						placeholder="Ketik password admin..."
+						disabled={isClearing}
+						class="w-full rounded-md border border-[#334155] bg-[#070d1f] px-3.5 py-2 font-mono text-xs text-white placeholder-[#64748b] transition-colors focus:border-[#4cd7f6] focus:outline-none"
+					/>
+				</div>
+
+				{#if clearError}
+					<div
+						class="rounded border border-[#ef4444]/40 bg-[#7f1d1d]/20 p-2.5 font-mono text-xs text-[#ff7886]"
+					>
+						{clearError}
+					</div>
+				{/if}
+
+				{#if clearSuccessMessage}
+					<div
+						class="rounded border border-[#4edea3]/40 bg-[#064e3b]/30 p-2.5 font-mono text-xs text-[#4edea3]"
+					>
+						{clearSuccessMessage}
+					</div>
+				{/if}
+
+				<div class="flex items-center justify-end gap-2 pt-2">
+					<button
+						type="button"
+						onclick={closeClearModal}
+						disabled={isClearing}
+						class="rounded border border-[#334155] bg-[#1e293b] px-4 py-2 font-mono text-xs text-[#94a3b8] transition-colors hover:bg-[#334155] hover:text-white disabled:opacity-50"
+					>
+						Batal
+					</button>
+					<button
+						type="button"
+						onclick={handleClearLogs}
+						disabled={isClearing}
+						class="inline-flex items-center gap-1.5 rounded bg-[#dc2626] px-4 py-2 font-mono text-xs font-semibold text-white transition-colors hover:bg-[#b91c1c] disabled:opacity-50"
+					>
+						{#if isClearing}
+							<span>Memproses...</span>
+						{:else}
+							<span>Hapus Database</span>
+						{/if}
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
 </main>
