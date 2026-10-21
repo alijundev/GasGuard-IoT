@@ -1,0 +1,17 @@
+# Contoh konfigurasi Cloudflare Tunnel untuk GasGuard IoT
+# Simpan di: ~/.cloudflared/config.yml (atau /etc/cloudflared/config.yml jika dijalankan sebagai service root)
+
+tunnel: YOUR_TUNNEL_ID_HERE
+credentials-file: /home/YOUR_VPS_USERNAME/.cloudflared/YOUR_TUNNEL_ID_HERE.json
+
+ingress:
+  # Domain utama
+  - hostname: gasguard.web.id
+    service: http://localhost:3000
+
+  # Subdomain www (opsional)
+  - hostname: www.gasguard.web.id
+    service: http://localhost:3000
+
+  # Catch-all rule (wajib ada di baris paling bawah)
+  - service: http_status:404
