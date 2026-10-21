@@ -108,7 +108,7 @@
 	// svelte-ignore state_referenced_locally
 	let logs = $state<LogItem[]>(data.logs ?? []);
 	// svelte-ignore state_referenced_locally
-	let currentAdc = $state(data.latest?.adcValue ?? 450);
+	let currentAdc = $state(data.latest?.adcValue ?? 0);
 	// svelte-ignore state_referenced_locally
 	let currentStatus = $state<'NORMAL' | 'PERINGATAN'>(data.latest?.status ?? 'NORMAL');
 	// svelte-ignore state_referenced_locally
