@@ -207,7 +207,6 @@ Time: 2026-10-21T22:40:00+08:00
 ### Prerequisites
 
 - [Bun](https://bun.sh) v1.4 or later
-- [Docker](https://www.docker.com/) (optional, for containerized deployment)
 
 ### Installation
 
@@ -246,13 +245,33 @@ bun ./build/index.js
 
 ---
 
-## 🚀 Deployment (GCP e2-micro + systemd + Cloudflare Tunnel)
+## 🚀 Deployment (GCP e2-micro + systemd + DuckDNS + Caddy)
 
-Panduan deployment lightweight tanpa Docker untuk VPS GCP Free Tier (`e2-micro`, 1 GB RAM, 0.25 vCPU).
+Panduan deployment produksi tanpa Docker, dioptimalkan khusus untuk VPS GCP Free Tier (**e2-micro**, 1 GB RAM, 0.25 vCPU) menggunakan:
 
-### 1. Persiapan VPS GCP (e2-micro)
+- **Bun** sebagai runtime JavaScript super cepat & efisien memori.
+- **systemd** untuk mengelola background service, auto-restart jika crash, dan _memory ceiling_.
+- **DuckDNS** untuk mendapatkan nama subdomain permanen gratis (misal: `gasguard-uho.duckdns.org`).
+- **Caddy** sebagai reverse proxy ringan (~20MB RAM) yang otomatis menerbitkan sertifikat SSL/HTTPS Let's Encrypt tanpa konfigurasi rumit.
 
-Karena RAM `e2-micro` hanya 1 GB, **sangat disarankan membuat Swap File 1GB–2GB** agar proses `bun install` & `bun run build` tidak mengalami OOM (Out Of Memory):
+---
+
+### 1. Izinkan Traffic HTTP & HTTPS di VM GCP
+
+Agar web dashboard dapat diakses dari internet via port 80 (HTTP) dan port 443 (HTTPS):
+
+1. Masuk ke [GCP Console](https://console.cloud.google.com/) -> **Compute Engine** -> **VM instances**.
+2. Klik nama VM Anda, lalu klik tombol **EDIT** di bagian menu atas.
+3. Scroll ke bagian **Firewalls**, centang:
+   - ☑ **Allow HTTP traffic**
+   - ☑ **Allow HTTPS traffic**
+4. Klik **Save** di bagian paling bawah.
+
+---
+
+### 2. Buat Swap Memory 2GB (Wajib untuk RAM 1GB)
+
+Karena RAM instans `e2-micro` hanya 1 GB, swap file diperlukan agar proses `bun install` & `bun run build` tidak mengalami OOM (_Out Of Memory_):
 
 ```bash
 # Buat swap file 2GB
@@ -261,18 +280,20 @@ sudo chmod 600 /swapfile
 sudo mkswap /swapfile
 sudo swapon /swapfile
 
-# Simpan agar otomatis aktif saat reboot
+# Pasang permanen saat VM reboot
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 ```
 
-### 2. Install Bun & Clone Repository
+---
+
+### 3. Install Bun & Clone Repository
 
 ```bash
-# Install Bun
+# Install Bun runtime
 curl -fsSL https://bun.sh/install | bash
 source ~/.bashrc
 
-# Clone repo & install dependencies
+# Clone repo & install dependensi
 git clone <URL_REPOSITORY_ANDA> GasGuard-IoT
 cd GasGuard-IoT
 bun install
@@ -281,73 +302,91 @@ bun install
 cp .env.example .env
 nano .env  # Masukkan konfigurasi MQTT & Telegram Bot Anda
 
-# Push schema database & build aplikasi
+# Push schema database & build aplikasi produksi
 bun run db:push
 bun run build
 ```
 
-### 3. Setup systemd Service
+---
+
+### 4. Setup systemd Service (Background Daemon)
 
 Template service sudah disediakan di [`deploy/gasguard.service`](deploy/gasguard.service).
 
 ```bash
-# Salin file service ke folder systemd
+# Salin file template service ke systemd
 sudo cp deploy/gasguard.service /etc/systemd/system/gasguard.service
 
-# Buka dan sesuaikan nama user & path binary bun Anda
+# Sesuaikan username VPS Anda (ganti YOUR_VPS_USERNAME dengan hasil `whoami`)
 sudo nano /etc/systemd/system/gasguard.service
-# (Ganti YOUR_VPS_USERNAME dengan output dari command `whoami`)
 
-# Reload systemd daemon & jalankan service
+# Reload daemon dan aktifkan service saat boot
 sudo systemctl daemon-reload
 sudo systemctl enable --now gasguard
 
-# Cek status service & logs
+# Cek status & logs aplikasi
 sudo systemctl status gasguard
 sudo journalctl -u gasguard -f
 ```
 
-### 4. Setup Cloudflare Tunnel (Expose Localhost ke Publik)
+---
 
-Dengan Cloudflare Tunnel, Anda mendapatkan domain HTTPS gratis tanpa perlu membuka firewall port 80/443 di GCP dan tanpa perlu repot konfigurasi Nginx/Certbot SSL.
+### 5. Setup Domain Gratis di DuckDNS
+
+1. Buka [duckdns.org](https://www.duckdns.org) dan login via Google atau GitHub.
+2. Buat nama subdomain gratis, misal: `gasguard-kel2`.
+3. Masukkan **External IP** dari VM GCP Anda ke kolom IP, lalu klik **update ip**.
+4. Anda sekarang memiliki domain: `gasguard-l2.duckdns.org`.
+
+---
+
+### 6. Install & Konfigurasi Caddy (Otomatis HTTPS / SSL)
+
+Caddy akan meneruskan traffic dari port 80/443 ke aplikasi SvelteKit di `localhost:3000` dan mengurus sertifikat SSL secara otomatis:
 
 ```bash
-# 1. Unduh dan install cloudflared
-curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-sudo dpkg -i cloudflared.deb
+# Install Caddy di Debian/Ubuntu
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update
+sudo apt install caddy -y
 
-# 2. Login ke akun Cloudflare Anda
-cloudflared tunnel login
-
-# 3. Buat Tunnel baru (misal dinamakan: gasguard)
-cloudflared tunnel create gasguard
-
-# 4. Buat file konfigurasi ~/.cloudflared/config.yml
-cat << 'EOF' > ~/.cloudflared/config.yml
-tunnel: <TUNNEL_ID_DARI_LANGKAH_3>
-credentials-file: /home/YOUR_VPS_USERNAME/.cloudflared/<TUNNEL_ID>.json
-
-ingress:
-  - hostname: gasguard.domainanda.com
-    service: http://localhost:3000
-  - service: http_status:404
-EOF
-
-# 5. Routing DNS domain ke tunnel
-cloudflared tunnel route dns gasguard gasguard.domainanda.com
-
-# 6. Pasang cloudflared sebagai systemd service (auto-start)
-sudo cloudflared service install
-sudo systemctl start cloudflared
-sudo systemctl enable cloudflared
+# Konfigurasi Caddyfile
+sudo nano /etc/caddy/Caddyfile
 ```
 
-> 💡 **Quick Tunnel (Alternatif Tanpa Custom Domain)**:  
-> Jika belum memiliki domain sendiri, Anda bisa menjalankan tunnel instan dengan subdomain `.trycloudflare.com`:
->
-> ```bash
-> cloudflared tunnel --url http://localhost:3000
-> ```
+Hapus seluruh isi default file tersebut dan ganti dengan:
+
+```caddy
+gasguard-kel2.duckdns.org {
+    reverse_proxy localhost:3000
+}
+```
+
+_(Sesuaikan dengan subdomain DuckDNS yang Anda buat)_.
+
+Lalu muat ulang Caddy:
+
+```bash
+sudo systemctl reload caddy
+```
+
+Dashboard siap diakses dengan HTTPS gembok hijau di: `https://gasguard-kel2.duckdns.org`.
+
+---
+
+### 💡 Alternatif: Cloudflare Quick Tunnel (Tanpa Subdomain)
+
+Jika hanya ingin demo instan tanpa membuat akun DuckDNS:
+
+```bash
+curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+sudo dpkg -i cloudflared.deb
+cloudflared tunnel --url http://localhost:3000
+```
+
+_(URL HTTPS publik instan `.trycloudflare.com` akan langsung muncul di terminal)._
 
 ---
 
