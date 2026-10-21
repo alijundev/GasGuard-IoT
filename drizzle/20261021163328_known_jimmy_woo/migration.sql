@@ -1,0 +1,1 @@
+CREATE INDEX `gas_logs_created_at_idx` ON `gas_logs` (`created_at`);

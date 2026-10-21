@@ -5,6 +5,12 @@ yarn.lock
 bun.lock
 bun.lockb
 
+# Build & System
+.svelte-kit/
+build/
+.output/
+.gemini/
+
 # Miscellaneous
 /static/
 /drizzle/

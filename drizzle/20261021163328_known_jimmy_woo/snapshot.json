@@ -1,0 +1,78 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "4efea75f-6dcd-49de-a48c-7462937fb515",
+  "prevIds": [
+    "f61331d8-9d47-455b-a776-d31b5a4424c1"
+  ],
+  "ddl": [
+    {
+      "name": "gas_logs",
+      "entityType": "tables"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "gas_logs"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "adc_value",
+      "entityType": "columns",
+      "table": "gas_logs"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "status",
+      "entityType": "columns",
+      "table": "gas_logs"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "gas_logs"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "gas_logs_pk",
+      "table": "gas_logs",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        {
+          "value": "created_at",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "gas_logs_created_at_idx",
+      "entityType": "indexes",
+      "table": "gas_logs"
+    }
+  ],
+  "renames": []
+}

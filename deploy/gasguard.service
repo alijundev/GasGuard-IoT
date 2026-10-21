@@ -1,0 +1,28 @@
+[Unit]
+Description=GasGuard IoT - Realtime Monitoring Service
+After=network.target
+
+[Service]
+Type=simple
+# Sesuaikan user dengan username di VPS Anda (misal: debian, ubuntu, atau nama user Anda)
+User=alijundev
+WorkingDirectory=/home/alijundev/GasGuard-IoT
+EnvironmentFile=/home/alijundev/GasGuard-IoT/.env
+Environment=PORT=3000
+Environment=NODE_ENV=production
+# Path binary bun (cek lokasi bun dengan perintah: which bun)
+ExecStart=/home/alijundev/.bun/bin/bun /home/alijundev/GasGuard-IoT/build/index.js
+Restart=always
+RestartSec=5
+
+# Safety resource limit untuk VM GCP e2-micro (1GB RAM)
+# Mencegah memory leak agar SSH VM tidak freeze
+MemoryMax=450M
+MemoryHigh=380M
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gasguard
+
+[Install]
+WantedBy=multi-user.target

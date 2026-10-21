@@ -79,20 +79,20 @@ GasGuard IoT is a web-based dashboard that **monitors gas leakage levels in real
 
 ## 🔧 Tech Stack
 
-| Layer      | Technology                                                     |
-| ---------- | -------------------------------------------------------------- |
-| Runtime    | [Bun](https://bun.sh) v1.4+                                   |
-| Framework  | [SvelteKit](https://svelte.dev/docs/kit) (Svelte 5 runes)     |
-| Adapter    | [@sveltejs/adapter-bun](https://svelte.dev/docs/kit/adapter-bun) |
-| Styling    | [Tailwind CSS](https://tailwindcss.com) v4                     |
-| Charts     | [Chart.js](https://www.chartjs.org) + [svelte-chartjs](https://github.com/nicolo-ribaudo/svelte-chartjs) |
-| Icons      | [Lucide Svelte](https://lucide.dev)                            |
-| Database   | [SQLite](https://www.sqlite.org) via `bun:sqlite`             |
-| ORM        | [Drizzle ORM](https://orm.drizzle.team)                       |
-| MQTT       | [MQTT.js](https://github.com/mqttjs/MQTT.js)                  |
-| Alerts     | [Telegram Bot API](https://core.telegram.org/bots/api)         |
-| Hardware   | ESP32 + MQ-2 gas sensor (simulated via [Wokwi](https://wokwi.com)) |
-| Broker     | [HiveMQ Public Broker](https://www.hivemq.com/public-mqtt-broker/) |
+| Layer     | Technology                                                                                               |
+| --------- | -------------------------------------------------------------------------------------------------------- |
+| Runtime   | [Bun](https://bun.sh) v1.4+                                                                              |
+| Framework | [SvelteKit](https://svelte.dev/docs/kit) (Svelte 5 runes)                                                |
+| Adapter   | [@sveltejs/adapter-bun](https://svelte.dev/docs/kit/adapter-bun)                                         |
+| Styling   | [Tailwind CSS](https://tailwindcss.com) v4                                                               |
+| Charts    | [Chart.js](https://www.chartjs.org) + [svelte-chartjs](https://github.com/nicolo-ribaudo/svelte-chartjs) |
+| Icons     | [Lucide Svelte](https://lucide.dev)                                                                      |
+| Database  | [SQLite](https://www.sqlite.org) via `bun:sqlite`                                                        |
+| ORM       | [Drizzle ORM](https://orm.drizzle.team)                                                                  |
+| MQTT      | [MQTT.js](https://github.com/mqttjs/MQTT.js)                                                             |
+| Alerts    | [Telegram Bot API](https://core.telegram.org/bots/api)                                                   |
+| Hardware  | ESP32 + MQ-2 gas sensor (simulated via [Wokwi](https://wokwi.com))                                       |
+| Broker    | [HiveMQ Public Broker](https://www.hivemq.com/public-mqtt-broker/)                                       |
 
 ---
 
@@ -142,14 +142,14 @@ The ESP32 (simulated via Wokwi) reads the MQ-2 gas sensor's analog output and pu
 
 ```json
 {
-  "adc": 512,
-  "status": "NORMAL"
+	"adc": 512,
+	"status": "NORMAL"
 }
 ```
 
-| Field    | Type     | Description                                                         |
-| -------- | -------- | ------------------------------------------------------------------- |
-| `adc`    | `number` | Raw ADC reading from MQ-2 sensor (0–4095 for ESP32 12-bit ADC)    |
+| Field    | Type     | Description                                                            |
+| -------- | -------- | ---------------------------------------------------------------------- |
+| `adc`    | `number` | Raw ADC reading from MQ-2 sensor (0–4095 for ESP32 12-bit ADC)         |
 | `status` | `string` | `"NORMAL"` when gas level is safe, `"PERINGATAN"` when gas is detected |
 
 ---
@@ -169,13 +169,13 @@ SQLite database managed by Drizzle ORM. All data is **append-only** (read-only d
 
 ### `alerts` table
 
-| Column       | Type      | Description                                   |
-| ------------ | --------- | --------------------------------------------- |
-| `id`         | `TEXT PK` | UUID v4, auto-generated                       |
-| `adc`        | `INTEGER` | ADC value that triggered the alert             |
-| `message`    | `TEXT`    | Human-readable alert message                   |
-| `notified`   | `INTEGER` | `1` if Telegram notification was sent          |
-| `created_at` | `TEXT`    | ISO 8601 timestamp                             |
+| Column       | Type      | Description                           |
+| ------------ | --------- | ------------------------------------- |
+| `id`         | `TEXT PK` | UUID v4, auto-generated               |
+| `adc`        | `INTEGER` | ADC value that triggered the alert    |
+| `message`    | `TEXT`    | Human-readable alert message          |
+| `notified`   | `INTEGER` | `1` if Telegram notification was sent |
+| `created_at` | `TEXT`    | ISO 8601 timestamp                    |
 
 ---
 
@@ -232,45 +232,140 @@ bun run dev
 
 The dashboard will be available at **http://localhost:5173**.
 
-### Production Build
+### Production Build & Run
 
 ```bash
 # Build for production
 bun run build
 
-# Run the production server
+# Run the production server directly
+bun start
+# atau
 bun ./build/index.js
 ```
 
 ---
 
-## 🐳 Docker
+## 🚀 Deployment (GCP e2-micro + systemd + Cloudflare Tunnel)
+
+Panduan deployment lightweight tanpa Docker untuk VPS GCP Free Tier (`e2-micro`, 1 GB RAM, 0.25 vCPU).
+
+### 1. Persiapan VPS GCP (e2-micro)
+
+Karena RAM `e2-micro` hanya 1 GB, **sangat disarankan membuat Swap File 1GB–2GB** agar proses `bun install` & `bun run build` tidak mengalami OOM (Out Of Memory):
 
 ```bash
-# Build and run with Docker Compose
-docker compose up -d
+# Buat swap file 2GB
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
 
-# Services:
-#   app        → SvelteKit dashboard (port 3000)
-#   mosquitto  → MQTT broker (ports 1883, 9001)
+# Simpan agar otomatis aktif saat reboot
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 ```
+
+### 2. Install Bun & Clone Repository
+
+```bash
+# Install Bun
+curl -fsSL https://bun.sh/install | bash
+source ~/.bashrc
+
+# Clone repo & install dependencies
+git clone <URL_REPOSITORY_ANDA> GasGuard-IoT
+cd GasGuard-IoT
+bun install
+
+# Konfigurasi file environment
+cp .env.example .env
+nano .env  # Masukkan konfigurasi MQTT & Telegram Bot Anda
+
+# Push schema database & build aplikasi
+bun run db:push
+bun run build
+```
+
+### 3. Setup systemd Service
+
+Template service sudah disediakan di [`deploy/gasguard.service`](deploy/gasguard.service).
+
+```bash
+# Salin file service ke folder systemd
+sudo cp deploy/gasguard.service /etc/systemd/system/gasguard.service
+
+# Buka dan sesuaikan nama user & path binary bun Anda
+sudo nano /etc/systemd/system/gasguard.service
+# (Ganti YOUR_VPS_USERNAME dengan output dari command `whoami`)
+
+# Reload systemd daemon & jalankan service
+sudo systemctl daemon-reload
+sudo systemctl enable --now gasguard
+
+# Cek status service & logs
+sudo systemctl status gasguard
+sudo journalctl -u gasguard -f
+```
+
+### 4. Setup Cloudflare Tunnel (Expose Localhost ke Publik)
+
+Dengan Cloudflare Tunnel, Anda mendapatkan domain HTTPS gratis tanpa perlu membuka firewall port 80/443 di GCP dan tanpa perlu repot konfigurasi Nginx/Certbot SSL.
+
+```bash
+# 1. Unduh dan install cloudflared
+curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+sudo dpkg -i cloudflared.deb
+
+# 2. Login ke akun Cloudflare Anda
+cloudflared tunnel login
+
+# 3. Buat Tunnel baru (misal dinamakan: gasguard)
+cloudflared tunnel create gasguard
+
+# 4. Buat file konfigurasi ~/.cloudflared/config.yml
+cat << 'EOF' > ~/.cloudflared/config.yml
+tunnel: <TUNNEL_ID_DARI_LANGKAH_3>
+credentials-file: /home/YOUR_VPS_USERNAME/.cloudflared/<TUNNEL_ID>.json
+
+ingress:
+  - hostname: gasguard.domainanda.com
+    service: http://localhost:3000
+  - service: http_status:404
+EOF
+
+# 5. Routing DNS domain ke tunnel
+cloudflared tunnel route dns gasguard gasguard.domainanda.com
+
+# 6. Pasang cloudflared sebagai systemd service (auto-start)
+sudo cloudflared service install
+sudo systemctl start cloudflared
+sudo systemctl enable cloudflared
+```
+
+> 💡 **Quick Tunnel (Alternatif Tanpa Custom Domain)**:  
+> Jika belum memiliki domain sendiri, Anda bisa menjalankan tunnel instan dengan subdomain `.trycloudflare.com`:
+>
+> ```bash
+> cloudflared tunnel --url http://localhost:3000
+> ```
 
 ---
 
 ## 📜 Available Scripts
 
-| Script           | Description                                 |
-| ---------------- | ------------------------------------------- |
-| `bun run dev`    | Start dev server with HMR                   |
-| `bun run build`  | Build for production                         |
-| `bun run preview`| Preview production build                     |
-| `bun run check`  | Run `svelte-check` type checking             |
-| `bun run lint`   | Run Prettier + ESLint checks                 |
-| `bun run format` | Auto-format code with Prettier               |
-| `bun run db:push`| Push schema changes to SQLite                |
-| `bun run db:generate` | Generate SQL migration files            |
-| `bun run db:migrate`  | Run pending migrations                  |
-| `bun run db:studio`   | Open Drizzle Studio (DB browser)        |
+| Script                | Description                                        |
+| --------------------- | -------------------------------------------------- |
+| `bun run dev`         | Start dev server with HMR                          |
+| `bun run build`       | Build for production using `@sveltejs/adapter-bun` |
+| `bun start`           | Start production server (`build/index.js`)         |
+| `bun run preview`     | Preview production build                           |
+| `bun run check`       | Run `svelte-check` type checking                   |
+| `bun run lint`        | Run Prettier + ESLint checks                       |
+| `bun run format`      | Auto-format code with Prettier                     |
+| `bun run db:push`     | Push schema changes to SQLite                      |
+| `bun run db:generate` | Generate SQL migration files                       |
+| `bun run db:migrate`  | Run pending migrations                             |
+| `bun run db:studio`   | Open Drizzle Studio (DB browser)                   |
 
 ---
 
