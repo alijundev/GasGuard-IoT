@@ -203,4 +203,17 @@ client.on('close', () => {
 	console.log('[MQTT] Connection closed.');
 });
 
+// Graceful shutdown on service stop / restart
+const handleShutdown = () => {
+	try {
+		client.end(true);
+	} catch {
+		// Ignore if already closed
+	}
+	process.exit(0);
+};
+
+process.on('SIGTERM', handleShutdown);
+process.on('SIGINT', handleShutdown);
+
 export { client };

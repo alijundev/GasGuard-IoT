@@ -14,6 +14,8 @@ Environment=NODE_ENV=production
 ExecStart=/home/alijundev/.bun/bin/bun /home/alijundev/GasGuard-IoT/build/index.js
 Restart=always
 RestartSec=5
+TimeoutStopSec=10s
+KillMode=mixed
 
 # Safety resource limit untuk VM GCP e2-micro (1GB RAM)
 # Mencegah memory leak agar SSH VM tidak freeze
