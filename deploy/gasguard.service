@@ -5,13 +5,13 @@ After=network.target
 [Service]
 Type=simple
 # Sesuaikan user dengan username di VPS Anda (misal: debian, ubuntu, atau nama user Anda)
-User=alijundev
-WorkingDirectory=/home/alijundev/GasGuard-IoT
-EnvironmentFile=/home/alijundev/GasGuard-IoT/.env
+User=VPS_USERNMAME
+WorkingDirectory=/home/VPS_USERNMAME/GasGuard-IoT
+EnvironmentFile=/home/VPS_USERNMAME/GasGuard-IoT/.env
 Environment=PORT=3000
 Environment=NODE_ENV=production
 # Path binary bun (cek lokasi bun dengan perintah: which bun)
-ExecStart=/home/alijundev/.bun/bin/bun /home/alijundev/GasGuard-IoT/build/index.js
+ExecStart=/home/VPS_USERNMAME/.bun/bin/bun /home/VPS_USERNMAME/GasGuard-IoT/build/index.js
 Restart=always
 RestartSec=5
 TimeoutStopSec=10s
